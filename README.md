@@ -1,0 +1,2 @@
+# gofun
+Experimentation with go

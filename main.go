@@ -57,14 +57,32 @@ type weatherUnderground struct {
 }
 
 func (w multiWeatherProvider) Temperature(city string) (float64, error) {
-	sum := 0.0
+	// Concurrency
+	// Channels for temps and errors
+	temps := make(chan float64, len(w))
+	errs := make(chan error, len(w))
 
 	for _, provider := range w {
-		k, err := provider.Temperature(city)
-		if err != nil {
+		go func(p weatherProvider) {
+			k, err := p.Temperature(city)
+			if err != nil {
+				errs <- err
+				return
+			}
+			temps <- k
+		}(provider)
+	}
+
+	sum := 0.0
+
+	// Sum up temps
+	for i := 0; i < len(w); i++ {
+		select {
+		case temp := <-temps:
+			sum += temp
+		case err := <-errs:
 			return 0, err
 		}
-		sum += k
 	}
 
 	return sum / float64(len(w)), nil
